@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>CATCAM // FIRST LIFE — GAMEPLAY EXPERIMENT</title>
+<title>CATCAM // FIRST LIFE — LOW-POWER COMPATIBILITY</title>
 <style>
 :root{
   --bg:#090a11;--shell:#17182a;--shell2:#252743;--edge:#4d5070;
@@ -43,6 +43,17 @@ body{display:flex;justify-content:center}.app{width:min(100%,1480px);height:100d
   .main{padding:6px;gap:6px}.screenhead{height:34px}.storybar{height:74px;padding:6px 10px}.storybar h2{font-size:15px;margin-bottom:2px}.storybar p{font-size:11px}.storymeta{font-size:9px;min-width:165px}
   .tabs{height:50px}.footer{height:20px;padding:4px 12px}.card{padding:9px}.card h3{margin-bottom:6px}.rail p{font-size:11px}
 }
+</style>
+<style id="catcamCompatibilityCSS">
+body.catcam-efficient .hudtop .chip,body.catcam-efficient .hudtop button,
+body.catcam-efficient .needchip,body.catcam-efficient .homecam button,
+body.catcam-efficient .inspecthud{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.gfxControls{border:2px solid #86a990;background:#e7f1da;padding:12px;margin:16px 0}
+.gfxControls>b{display:block;margin-bottom:5px;font-size:14px;color:#372554}
+.gfxControls p{font-size:11px;line-height:1.5}
+.gfxModeChoices{display:flex;flex-wrap:wrap;gap:6px}
+.gfxModeChoices .btn{flex:1 1 110px;min-height:39px;font-size:10px;padding:7px 8px}
+.gfxModeChoices .btn[aria-pressed="true"]{background:#4e2a8e;color:white}
 </style>
 <style>
 /* FIRST LIFE: optional, dismissible onboarding; doesn't obstruct cat interactions. */
@@ -206,13 +217,48 @@ body.retro-graphics .story-expand{font-family:'Courier New',monospace;background
  <footer class="footer"><span>unaffiliated.page</span><span>CATCAM // FIRST LIFE GAMEPLAY ALPHA // BASELINE VISUALS</span></footer>
 </div>
 <div class="modal hidden" id="profileModal"><div class="modalbox"><h2>YOUR CAT</h2><p class="profileintro">Spaghetti is the default. Pick a name, coat, collar, eyes, and whether your cat is a girl or boy. Gender sets pronouns throughout CatCam. You can change any of this later from HOME.</p><div class="profilegrid"><div class="profilepreview"><canvas id="profileCanvas"></canvas></div><div class="profilecontrols"><div class="field"><label>NAME</label><input id="nameInput" maxlength="18"></div><div class="choiceblock"><label>GENDER</label><div class="genderrow"><button class="genderbtn" id="genderGirl" data-gender="girl">GIRL</button><button class="genderbtn" id="genderBoy" data-gender="boy">BOY</button></div></div><div class="choiceblock"><label>COAT</label><div class="selector"><button id="coatPrev">◀</button><div class="selectorname" id="coatName">BLACK</div><button id="coatNext">▶</button></div></div><div class="choiceblock"><label>EYES</label><div class="selector"><button id="eyePrev">◀</button><div class="selectorname" id="eyeName">YELLOW</div><button id="eyeNext">▶</button></div></div><div class="choiceblock"><label>COLLAR</label><div class="selector"><button id="collarPrev">◀</button><div class="selectorname" id="collarName">NONE</div><button id="collarNext">▶</button></div></div><div class="profilesummary" id="profileSummary"></div></div></div><div class="btnrow profileactions"><button class="btn primary" id="profileSave">USE THIS CAT</button><button class="btn" id="profileCancel">CANCEL</button></div></div></div>
-<div class="modal hidden" id="helpModal"><div class="modalbox"><h2>CATCAM</h2><div id="helpCopy"></div><button class="btn primary" id="helpClose">GOT IT</button></div></div><div class="modal hidden" id="photoModal"><div class="modalbox"><h2 id="photoModalTitle">CATCAM PHOTO</h2><img id="photoModalImg" alt="Saved CatCam photo" style="width:100%;max-height:70vh;object-fit:contain;image-rendering:pixelated;background:#b9d8aa;border:3px solid var(--violet)"><p id="photoModalMeta" class="tiny"></p><button class="btn primary" id="photoModalClose">CLOSE</button></div></div>
+<div class="modal hidden" id="helpModal"><div class="modalbox"><h2>CATCAM</h2><div id="helpCopy"></div><div class="gfxControls"><b>HIFI PERFORMANCE</b><p>Automatic keeps the full illustrations and adjusts drawing to your computer. Choose Efficient if your device still struggles.</p><div class="gfxModeChoices"><button class="btn" data-gfx="auto" type="button">AUTO</button><button class="btn" data-gfx="quality" type="button">MAX DETAIL</button><button class="btn" data-gfx="efficient" type="button">EFFICIENT</button></div><p class="tiny">These options only affect rendering, never your cat's behavior or save.</p><button class="btn" id="copyPerfReport" type="button">COPY PERFORMANCE REPORT</button></div><button class="btn primary" id="helpClose">GOT IT</button></div></div><div class="modal hidden" id="photoModal"><div class="modalbox"><h2 id="photoModalTitle">CATCAM PHOTO</h2><img id="photoModalImg" alt="Saved CatCam photo" style="width:100%;max-height:70vh;object-fit:contain;image-rendering:pixelated;background:#b9d8aa;border:3px solid var(--violet)"><p id="photoModalMeta" class="tiny"></p><button class="btn primary" id="photoModalClose">CLOSE</button></div></div>
 <div class="toast" id="toast"></div><div class="dev hidden" id="dev"></div>
 <script>
 (()=>{'use strict';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-const C=$('#game'),ctx=C.getContext('2d'),panel=$('#panel'),rail=$('#rail'),toast=$('#toast');
+let C=$('#game'),ctx=C.getContext('2d');const DISPLAY_CANVAS=C,DISPLAY_CTX=ctx,panel=$('#panel'),rail=$('#rail'),toast=$('#toast');
 const MW=257,MH=257,HOME={x:128,y:128};
+
+/* CATCAM LOW-POWER COMPATIBILITY // all values are session-only; never change saves. */
+const CATCAM_PERF={
+  memoryGB:Number(navigator.deviceMemory)||0,
+  cpuCount:Number(navigator.hardwareConcurrency)||0,
+  mode:'auto',scale:1,minScale:.61,targetFps:30,
+  estimatedPixels:0,qualityChanges:0,slowWindows:0,fastWindows:0,
+  lastTune:performance.now(),frameJank:0,jankSamples:0,
+  fallbackCount:0,staticFallbacks:0,
+  get constrained(){return (this.memoryGB>0&&this.memoryGB<=4)||(this.cpuCount>0&&this.cpuCount<=4)}
+};
+const CATCAM_GFX_PREF='catcam_first_life_graphics_preference_v1';
+const CATCAM_RENDER_LIMIT=()=>CATCAM_PERF.mode==='quality'?3100000:
+  CATCAM_PERF.mode==='efficient'?560000:
+  CATCAM_PERF.memoryGB>0&&CATCAM_PERF.memoryGB<=2?470000:
+  CATCAM_PERF.memoryGB>0&&CATCAM_PERF.memoryGB<=4?790000:
+  CATCAM_PERF.cpuCount>0&&CATCAM_PERF.cpuCount<=4?900000:2100000;
+function computeCatcamScale(width,height){
+ const perf=CATCAM_PERF,cap=CATCAM_RENDER_LIMIT();
+ const maxScale=Math.min(1,Math.sqrt(cap/Math.max(1,width*height)));
+ if(perf.mode==='quality')return maxScale;
+ if(perf.mode==='efficient')return Math.max(.55,Math.min(.8,maxScale));
+ return Math.max(.55,Math.min(maxScale,perf.scale));
+}
+function setCatcamRenderMode(mode){
+ if(!['auto','quality','efficient'].includes(mode))return false;
+ CATCAM_PERF.mode=mode;CATCAM_PERF.scale=1;CATCAM_PERF.targetFps=mode==='efficient'?20:30;
+ try{localStorage.setItem(CATCAM_GFX_PREF,mode)}catch(e){}
+ document.querySelectorAll('[data-gfx]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.gfx===mode)));
+ CATCAM_PERF.slowWindows=0;CATCAM_PERF.fastWindows=0;CATCAM_PERF.lastTune=performance.now();
+ document.body.classList.toggle('catcam-efficient',mode==='efficient');
+ if(typeof HF_STATIC_CACHE!=='undefined')HF_STATIC_CACHE.key='';
+ if(typeof resize==='function')resize();return true;
+}
+
 const SAVE='catcam_spaghetti_first_life_alpha_v1', RESET_MARK='catcam_spaghetti_first_life_reset', CANONICAL_SAVE='catcam_spaghetti_v260_dual_canonical_v1', IMPORT_SAVE='catcam_spaghetti_v260_hifi_lab_v4', LEGACY_SAVE='catcam_spaghetti_v100_places', OLD='catcam_spaghetti_v020';
 const COLORS={lcd:'#d9efc7',grass:'#b8d9a9',grass2:'#98bd8e',soil:'#c5b98a',road:'#9fa9a6',water:'#79aeb7',violet:'#4e2a8e',violet2:'#7959ad',yellow:'#f4df3d',pink:'#e8789b',ink:'#1b2949',dark:'#171820',orange:'#c87846'};
 const COATS={
@@ -1060,7 +1106,8 @@ function renderCat(x,y,scale=5,pose='walk',phase=0,dir=1,coatKey=state.profile.c
  // Retro cats keep their minimal pixel faces: no cheek whisker strokes.
  ctx.fillStyle=COLORS.pink;ctx.fillRect(hx,hy+1,1,1);if(pose==='yawn'){ctx.fillStyle='#6f3b56';ctx.fillRect(1+hx,hy+2,3,3)}if(pose==='chirp'){ctx.fillStyle='#6f3b56';ctx.fillRect(2+hx,hy+2,2,1)}ctx.restore()
 }
-function sceneView(){if(state.ui.camWide)return {x0:0,y0:0,w:100,h:82,scale:1};if(state.ui?.hifiMode===false){const w=62,h=50;return {x0:clamp(state.cat.lx-w/2,0,100-w),y0:clamp(state.cat.ly-h/2,0,82-h),w,h,scale:100/w}}const home=scene?.place?.type==='home',compact=C.width<600;const w=home?(compact?62:78):62,h=home?(compact?50:60):50,x0=clamp(state.cat.lx-w/2,0,100-w),y0=clamp(state.cat.ly-(home?h*.60:h/2),0,82-h);return {x0,y0,w,h,scale:100/w}}
+let CATCAM_STATIC_VIEW=null;
+function sceneView(){if(CATCAM_STATIC_VIEW)return CATCAM_STATIC_VIEW;if(state.ui.camWide)return {x0:0,y0:0,w:100,h:82,scale:1};if(state.ui?.hifiMode===false){const w=62,h=50;return {x0:clamp(state.cat.lx-w/2,0,100-w),y0:clamp(state.cat.ly-h/2,0,82-h),w,h,scale:100/w}}const home=scene?.place?.type==='home',compact=C.width<600;const w=home?(compact?62:78):62,h=home?(compact?50:60):50,x0=clamp(state.cat.lx-w/2,0,100-w),y0=clamp(state.cat.ly-(home?h*.60:h/2),0,82-h);return {x0,y0,w,h,scale:100/w}}
 function sceneSX(x){const v=sceneView();return (x-v.x0)/v.w*C.width}
 function sceneSY(y){const v=sceneView();return (y-v.y0)/v.h*C.height}
 function screenToLocal(x,y){const v=sceneView();return {x:clamp(v.x0+x/C.width*v.w,0,100),y:clamp(v.y0+y/C.height*v.h,0,82)}}
@@ -1322,7 +1369,7 @@ function hfCloudSprite(sc,color){
  c.width=Math.ceil(w+pad*2);c.height=Math.ceil(h+pad*2);
  const g=c.getContext('2d');g.fillStyle=color;g.filter=`blur(${2+sc}px)`;
  for(let q=0;q<5;q++){g.beginPath();g.ellipse(pad+120*sc+(q-2)*26*sc,pad+50*sc+Math.sin(q*1.7)*8*sc,(27+q%2*9)*sc,(10+q%3*4)*sc,0,0,Math.PI*2);g.fill()}
- g.filter='none';HF_CLOUD_SPRITES.set(key,c);return c;
+ g.filter='none';if(HF_CLOUD_SPRITES.size>=24)HF_CLOUD_SPRITES.delete(HF_CLOUD_SPRITES.keys().next().value);HF_CLOUD_SPRITES.set(key,c);return c;
 }
 function hfDrawClouds(){
  const L=hfLight(),weather=state.world.weather,w=C.width,h=C.height,t=performance.now()/1000;
@@ -1351,7 +1398,25 @@ function hfDrawYardStructure(){
  ctx.strokeStyle='rgba(35,43,35,.15)';ctx.lineWidth=Math.max(1,C.width/1000);for(let wx=14;wx<96;wx+=7){ctx.beginPath();ctx.moveTo(sceneSX(wx),sceneSY(20));ctx.lineTo(sceneSX(wx+9),sceneSY(45));ctx.stroke()}
 }
 function hfWoodGradient(x1,y1,x2,y2,c1='#8c6e4f',c2='#5e4633'){const g=ctx.createLinearGradient(x1,y1,x2,y2);g.addColorStop(0,c1);g.addColorStop(.48,c2);g.addColorStop(1,c1);return g}
-function hfShadow(x,y,rx,ry,a=.24){ctx.save();ctx.filter='blur(4px)';ctx.fillStyle=`rgba(10,15,13,${a})`;ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill();ctx.restore()}
+const HF_SHADOW_CACHE=new Map();
+function hfShadow(x,y,rx,ry,a=.24){
+ if(rx<=0||ry<=0||!Number.isFinite(rx)||!Number.isFinite(ry))return;
+ // One reusable soft ellipse per approximate screen-space size, capped at 40.
+ const qx=Math.max(2,Math.min(512,Math.round(rx/3)*3));
+ const qy=Math.max(2,Math.min(256,Math.round(ry/2)*2));
+ const key=qx+'x'+qy;let c=HF_SHADOW_CACHE.get(key);
+ if(!c){
+   c=document.createElement('canvas');c.width=Math.ceil(qx*2+20);c.height=Math.ceil(qy*2+20);
+   const g=c.getContext('2d');
+   if(!g){return}
+   g.fillStyle='rgb(10,15,13)';g.filter='blur(4px)';g.beginPath();
+   g.ellipse(c.width/2,c.height/2,qx,qy,0,0,Math.PI*2);g.fill();g.filter='none';
+   if(HF_SHADOW_CACHE.size>=40){const oldest=HF_SHADOW_CACHE.keys().next().value;HF_SHADOW_CACHE.delete(oldest)}
+   HF_SHADOW_CACHE.set(key,c);
+ }
+ const drawW=rx*2+20,drawH=ry*2+20;
+ ctx.save();ctx.globalAlpha*=a;ctx.drawImage(c,x-drawW/2,y-drawH/2,drawW,drawH);ctx.restore();
+}
 function hfProp(p){
  const v=sceneView(),x=sceneSX(p.x),y=sceneSY(p.y),s=C.width/700*v.scale,rs=propRenderScale(p.type),k=p.type,t=performance.now()/1000,wind=state.world.weather==='wind'?Math.sin(t*2.2+p.id)*3:Math.sin(t*.75+p.id)*.55;ctx.save();ctx.translate(x,y);ctx.scale(rs,rs);if(p.angle)ctx.rotate(p.angle);
  if(!GROUND_PROP_TYPES.has(k)&&!['wall','fence','tree'].includes(k))hfShadow(0,11*s,18*s,5*s,.18);
@@ -1417,7 +1482,7 @@ function hfCatModel(x,y,scale,pose,phase,dir,coatKey=state.profile.coat,withGear
  else if(pose==='chirp'){by=.6;bodyRx=5.5;bodyRy=5.8;hx=4.2;hy=-8.4;tail='high'}
  else if(pose==='spin'){by=1;hx=5.2+Math.sin(t*2)*1.4;hy=-6.3;tail='lash';leg=step*1.3}
  // shadow
- ctx.save();ctx.filter='blur(2px)';ctx.fillStyle='rgba(0,0,0,.34)';ctx.beginPath();ctx.ellipse(0,5.3,9.8,2.25,0,0,Math.PI*2);ctx.fill();ctx.restore();
+ hfShadow(0,5.3,9.8,2.25,.34);
  // tail behind body
  ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle=c.base;ctx.lineWidth=3.2;ctx.beginPath();if(tail==='straight'){ctx.moveTo(-5,0);ctx.bezierCurveTo(-11,-1,-14,-3,-17,-2)}else if(tail==='low'){ctx.moveTo(-5,1);ctx.bezierCurveTo(-11,2,-14,4,-17,2)}else if(tail==='curl'){ctx.moveTo(-5,1);ctx.bezierCurveTo(-12,3,-13,8,-7,8);ctx.bezierCurveTo(-3,8,-3,5,-6,5)}else if(tail==='puff'){ctx.lineWidth=5;ctx.moveTo(-5,0);ctx.bezierCurveTo(-10,-5,-12,-11,-10,-15)}else if(tail==='lash'){ctx.moveTo(-5,0);ctx.bezierCurveTo(-10,-1,-14,-5+Math.sin(t*3)*4,-17,-2)}else if(tail==='up'){ctx.moveTo(-5,0);ctx.bezierCurveTo(-10,-3,-10,-10,-7,-14);ctx.bezierCurveTo(-5,-17,-3+Math.sin(t*1.4)*.9,-15,-4+Math.sin(t*1.4)*1.3,-13)}else{ctx.moveTo(-5,0);ctx.bezierCurveTo(-10,-2,-13,-6,-14,-10+Math.sin(t*1.5))}ctx.stroke();
  // body fur gradient
@@ -1600,29 +1665,79 @@ function hfDrawWeatherAndGrade(){
  // vignette + subtle film grain
  const vg=ctx.createRadialGradient(w*.5,h*.46,Math.min(w,h)*.25,w*.5,h*.46,Math.max(w,h)*.72);vg.addColorStop(.55,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.30)');ctx.fillStyle=vg;ctx.fillRect(0,0,w,h);ctx.globalAlpha=1;
 }
-// PERFORMANCE V3: retained full-resolution static scenery; moving characters, clouds,
-// weather and atmospheric grading still render live at their original fidelity.
-const HF_STATIC_CACHE={canvas:document.createElement('canvas'),key:'',builds:0,hits:0};
+// COMPATIBILITY PASS: camera-aware panoramic backdrop cache, bounded in memory.
+// Static scenery is painted only on entry/light/weather/zoom changes or when the
+// cat pans outside the cached overscan. Dynamic characters remain vector sharp.
+const HF_STATIC_CACHE={canvas:document.createElement('canvas'),key:'',builds:0,hits:0,
+  viewport:null,baseW:0,baseH:0,megabytes:0,panMisses:0,failures:0};
 function hfStaticKey(kind){
  const v=sceneView(),p=scene?.place;
- // The light changes continuously; rebuild at short intervals rather than freezing a day.
- const lightBucket=Math.floor(hfHour()*12); // five-minute lighting steps
+ const lightBucket=Math.floor(hfHour()*12); // preserve existing 5-minute light transitions
  return [kind,p?.type,p?.name,state.cat.mx,state.cat.my,state.world.weather,
-   C.width,C.height,state.ui?.camWide?1:0,
-   v.x0.toFixed(3),v.y0.toFixed(3),v.w.toFixed(3),v.h.toFixed(3),lightBucket].join('|');
+   C.width,C.height,state.ui?.camWide?1:0,v.w.toFixed(3),v.h.toFixed(3),
+   lightBucket].join('|');
 }
 function hfStaticScene(kind,paint){
- // Wind moves individual grass blades: keep that environment live.
- if(state.world.weather==='wind'){paint();return}
- const key=hfStaticKey(kind),cache=HF_STATIC_CACHE;
- if(cache.key!==key||cache.canvas.width!==C.width||cache.canvas.height!==C.height){
-  paint();cache.canvas.width=C.width;cache.canvas.height=C.height;
-  cache.canvas.getContext('2d',{alpha:false}).drawImage(C,0,0);
-  cache.key=key;cache.builds++;
- }else{ctx.drawImage(cache.canvas,0,0);cache.hits++}
+ const cache=HF_STATIC_CACHE,originalC=C,originalCtx=ctx,view=sceneView();
+ const W=originalC.width,H=originalC.height,key=hfStaticKey(kind);
+ const cached=cache.viewport;
+ const pxPerX=W/view.w,pxPerY=H/view.h;
+ let cropX=cached?(view.x0-cached.x0)*pxPerX:NaN;
+ let cropY=cached?(view.y0-cached.y0)*pxPerY:NaN;
+ const cropFits=cached&&cache.baseW===view.w&&cache.baseH===view.h&&
+   cropX>=-0.4&&cropY>=-0.4&&cropX+W<=cache.canvas.width+.4&&cropY+H<=cache.canvas.height+.4;
+ if(cache.key!==key||!cropFits){
+   if(cache.key===key)cache.panMisses++;
+   // Keep overscan modest on small-memory machines; never allocate an enormous
+   // 2-D surface and never leave the visible canvas partially unpainted.
+   const pxBudget=CATCAM_PERF.constrained?1400000:3200000;
+   const overscan=Math.min(.21,Math.max(0,(Math.sqrt(pxBudget/Math.max(1,W*H))-1)/2));
+   const marginX=Math.round(W*overscan),marginY=Math.round(H*overscan);
+   const bw=W+marginX*2,bh=H+marginY*2;
+   const viewWide={x0:view.x0-marginX/pxPerX,y0:view.y0-marginY/pxPerY,
+     w:bw/pxPerX,h:bh/pxPerY,scale:100/(bw/pxPerX)};
+   try{
+     if(cache.canvas.width!==bw||cache.canvas.height!==bh){cache.canvas.width=bw;cache.canvas.height=bh}
+     const bg=cache.canvas.getContext('2d',{alpha:false});
+     if(!bg)throw new Error('Static graphics buffer unavailable');
+     // Switch only while the original static paint function executes.
+     C=cache.canvas;ctx=bg;CATCAM_STATIC_VIEW=viewWide;
+     bg.setTransform(1,0,0,1,0,0);bg.imageSmoothingEnabled=true;
+     try{paint()}finally{C=originalC;ctx=originalCtx;CATCAM_STATIC_VIEW=null}
+     cache.viewport=viewWide;cache.baseW=view.w;cache.baseH=view.h;cache.key=key;cache.builds++;
+     cache.megabytes=Math.round(bw*bh*4/1048576*10)/10;
+     cropX=marginX;cropY=marginY;
+   }catch(e){
+     C=originalC;ctx=originalCtx;CATCAM_STATIC_VIEW=null;
+     cache.key='';cache.viewport=null;cache.failures++;CATCAM_PERF.staticFallbacks++;
+     // A failed cache must never make HiFi itself unusable.
+     if(cache.failures<3)console.warn('CATCAM scenery cache unavailable; rendering directly',e);
+     paint();return;
+   }
+ }else{cache.hits++}
+ // Draw exactly the visible area at native backing resolution; the cat and
+ // moving scenery are painted separately after this image is copied.
+ originalCtx.drawImage(cache.canvas,cropX,cropY,W,H,0,0,W,H);
 }
+
+function hfWindGrassOverlay(){
+ if(state.world.weather!=='wind')return;
+ const v=sceneView(),t=performance.now(),s=C.width/700*v.scale;
+ ctx.save();ctx.lineCap='round';
+ for(let i=0;i<36;i++){
+   const idx=i*4,wx=hash(idx,11,HF.woodSeed)*100,wy=42+hash(14,idx,HF.woodSeed)*40;
+   if(wx<v.x0-2||wx>v.x0+v.w+2||wy<v.y0-2||wy>v.y0+v.h+2)continue;
+   const x=sceneSX(wx),y=sceneSY(wy),len=(2.5+hash(idx,9,3)*5.5)*s;
+   const sway=Math.sin(t/300+idx)*2.4;
+   ctx.strokeStyle=hash(idx,3,4)>.5?'rgba(126,160,94,.48)':'rgba(78,125,70,.5)';
+   ctx.lineWidth=Math.max(.6,s*.55);ctx.beginPath();ctx.moveTo(x,y);
+   ctx.quadraticCurveTo(x+sway*.35,y-len*.52,x+sway,y-len);ctx.stroke();
+ }
+ ctx.restore();
+}
+
 function drawHiFiHomeYard(){
- if(!scene)return;ctx.imageSmoothingEnabled=true;ctx.clearRect(0,0,C.width,C.height);hfStaticScene('home',()=>{hfDrawSky();hfDrawGround();hfDrawYardStructure()});hfDrawClouds();
+ if(!scene)return;ctx.imageSmoothingEnabled=true;ctx.clearRect(0,0,C.width,C.height);hfStaticScene('home',()=>{hfDrawSky();hfDrawGround();hfDrawYardStructure()});hfWindGrassOverlay();hfDrawClouds();
  const phase=(performance.now()/520)%1,worldS=C.width/700*sceneView().scale;let lift=0;if(state.cat.action&&['climb','climbbin'].includes(state.cat.action.kind)&&state.cat.action.stage!=='approach')lift=-Math.max(18,C.width/35);if(state.cat.action?.kind==='climbbin'&&state.cat.action.stage==='doing2')lift-=8;
  const ground=(scene.props||[]).filter(q=>!q.eaten&&GROUND_PROP_TYPES.has(q.type));ground.forEach(hfProp);
  const drawables=[];(scene.props||[]).filter(q=>!q.eaten&&!GROUND_PROP_TYPES.has(q.type)).forEach(q=>drawables.push({y:q.type==='bed'&&['sleep','loaf'].includes(state.cat.pose)&&Math.hypot(q.x-state.cat.lx,q.y-state.cat.ly)<19?Math.min(q.y,state.cat.ly-1):q.y,fn:()=>hfProp(q)}));(scene.movers||[]).forEach(q=>drawables.push({y:q.type==='bed'&&['sleep','loaf'].includes(state.cat.pose)&&Math.hypot(q.x-state.cat.lx,q.y-state.cat.ly)<19?Math.min(q.y,state.cat.ly-1):q.y,fn:()=>hfDrawMoverExpanded(q)}));(scene.npcs||[]).forEach(q=>drawables.push({y:q.type==='bed'&&['sleep','loaf'].includes(state.cat.pose)&&Math.hypot(q.x-state.cat.lx,q.y-state.cat.ly)<19?Math.min(q.y,state.cat.ly-1):q.y,fn:()=>hfDrawNpcExpanded(q)}));drawables.push({y:state.cat.ly,fn:()=>hfCatModel(sceneSX(state.cat.lx),sceneSY(state.cat.ly)+lift,Math.max(1.22,worldS*2.08),state.cat.pose,phase,state.cat.dir)});drawables.sort((a,b)=>a.y-b.y).forEach(q=>q.fn());hfDrawToyBall();
@@ -1631,7 +1746,17 @@ hfDrawNeedMarker()
 }
 function drawScene(){const p=scene?.place||placeAt(HOME.x,HOME.y);if(p.type==='home')drawHiFiHomeYard();else drawSceneLegacy()}
 
-function resize(){const r=$('#stage').getBoundingClientRect();C.width=Math.max(360,Math.round(r.width));C.height=Math.max(240,Math.round(r.height));ctx.imageSmoothingEnabled=true;draw();renderMiniVitals()}
+function resize(){
+ const r=$('#stage').getBoundingClientRect();
+ const factor=(typeof isHiFiVisual==='function'&&isHiFiVisual())?
+    computeCatcamScale(Math.max(360,r.width),Math.max(240,r.height)):1;
+ const w=Math.max(360,Math.round(Math.max(360,r.width)*factor));
+ const h=Math.max(240,Math.round(Math.max(240,r.height)*factor));
+ CATCAM_PERF.estimatedPixels=w*h;
+ if(C.width!==w||C.height!==h){C.width=w;C.height=h;
+   HF_STATIC_CACHE.key='';HF_STATIC_CACHE.viewport=null;HF_SHADOW_CACHE.clear();}
+ ctx.imageSmoothingEnabled=true;draw();renderMiniVitals();
+}
 function draw(){if(state.tab==='cam')drawScene();else if(state.tab==='map')drawMap()}
 function drawMap(){ctx.fillStyle='#aabf98';ctx.fillRect(0,0,C.width,C.height);const size=state.map.zoom===1?26:state.map.zoom===2?44:64;const cols=Math.ceil(C.width/size)+2,rows=Math.ceil(C.height/size)+2,cx=Math.floor(cols/2),cy=Math.floor(rows/2);for(let gy=-cy-1;gy<=cy+1;gy++)for(let gx=-cx-1;gx<=cx+1;gx++){const mx=Math.round(state.map.cx)+gx,my=Math.round(state.map.cy)+gy,x=C.width/2+gx*size-size/2,y=C.height/2+gy*size-size/2,k=key(mx,my),inside=insideWorld(mx,my),known=!!state.known[k];if(!inside){ctx.fillStyle='#151727';ctx.fillRect(x,y,size+1,size+1);ctx.strokeStyle='#292c42';ctx.strokeRect(x,y,size,size);continue}const p=placeAt(mx,my),zone=zoneFor(mx,my);if(!known){const dd=homeDistance(mx,my),reach=macroRange();ctx.fillStyle=dd<=reach?(zone==='FRINGE'?'#292d40':'#30344b'):'#202335';ctx.fillRect(x,y,size+1,size+1);ctx.fillStyle=dd<=reach?'#596078':'#383c52';ctx.fillRect(x+size*.45,y+size*.45,size*.1,size*.1);if(dd===reach){ctx.strokeStyle='rgba(244,223,61,.52)';ctx.lineWidth=2;ctx.strokeRect(x+1,y+1,size-2,size-2)}if(dd===WORLD_LIMIT){ctx.strokeStyle='rgba(232,120,155,.42)';ctx.strokeRect(x+1,y+1,size-2,size-2)}continue}ctx.fillStyle=TYPE_INFO[p.type]?.[1]||'#b8d9a9';ctx.fillRect(x,y,size+1,size+1);if(zone==='OUTSKIRTS'){ctx.fillStyle='rgba(78,42,142,.07)';ctx.fillRect(x,y,size,size)}else if(zone==='FRINGE'){ctx.fillStyle='rgba(35,36,58,.18)';ctx.fillRect(x,y,size,size)}ctx.strokeStyle=homeDistance(mx,my)===WORLD_LIMIT?'rgba(197,82,102,.8)':'rgba(73,53,125,.25)';ctx.lineWidth=homeDistance(mx,my)===WORLD_LIMIT?2:1;ctx.strokeRect(x,y,size,size);drawMapIcon(p.type,x+size/2,y+size/2,size*.45);const visits=state.placeVisits[k]||0;if(visits>2){ctx.fillStyle='rgba(244,223,61,.35)';ctx.fillRect(x+3,y+3,Math.min(size-6,visits*3),3)}if(mx===state.cat.mx&&my===state.cat.my){ctx.strokeStyle=COLORS.yellow;ctx.lineWidth=3;ctx.strokeRect(x+2,y+2,size-4,size-4)}if(size>=44){ctx.fillStyle=COLORS.ink;ctx.font='bold 8px monospace';ctx.fillText(p.name.split(' ')[0],x+3,y+size-4)}}
  if(state.outing.route.length>1){ctx.strokeStyle=COLORS.pink;ctx.lineWidth=3;ctx.beginPath();state.outing.route.forEach((q,i)=>{const [mx,my]=q,px=C.width/2+(mx-state.map.cx)*size,py=C.height/2+(my-state.map.cy)*size;i?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.stroke()}if(state.ui.expeditionRoute?.length>1){ctx.save();ctx.strokeStyle='#f4df3d';ctx.lineWidth=4;ctx.setLineDash([8,4]);ctx.beginPath();state.ui.expeditionRoute.forEach((q,i)=>{const px=C.width/2+(q[0]-state.map.cx)*size,py=C.height/2+(q[1]-state.map.cy)*size;i?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.stroke();ctx.setLineDash([]);ctx.restore()}
@@ -1714,7 +1839,7 @@ EXIT ${exit}
 RANGE ${macroRange()} // REGION ${regionFor(state.cat.mx,state.cat.my)} // WORLD ${WORLD_LIMIT}\nTIER ${state.progress.tier||1} // NIGHTS AWAY ${state.progress.nightsAway||0} // DEEP ${state.progress.deepReached?'YES':'NO'}\nGATES ${state.debug.gatesOff?'OFF':'ON'}
 SIM ${state.debug.speed}x // NEEDS ${state.debug.needsOff?'OFF':'ON'} // ROAM ${state.debug.roamOnly?(state.debug.lifeTest?'LIFE TEST':'FRONTIER'):'NORMAL'}
 COMMIT ${Math.max(0,Math.round(outingCommitment()-(state.outing?.elapsed||0)))}s // GOAL ${state.outing?.goal?.label||'none'} // RETURN PRESS ${Math.round(normalReturnPressure())}
-FPS ${typeof perfFps==='number'?perfFps:'--'} // DRAW ${renderMs.toFixed(1)}ms // LOGIC ${logicMs.toFixed(1)}ms // CACHE ${HF_STATIC_CACHE.hits}/${HF_STATIC_CACHE.builds} // ERRORS ${runtimeErrorCount}${lastRuntimeError?' // '+lastRuntimeError:''}</pre><div><button id="devSpeed">SIM ${state.debug.speed}X</button><button id="devNeeds">NEEDS ${state.debug.needsOff?'OFF':'ON'}</button><button id="devRoam">ROAM ${state.debug.roamOnly?'ONLY':'NORMAL'}</button><button id="devGates">GATES ${state.debug.gatesOff?'OFF':'ON'}</button><button id="devMischief">MISCHIEF ${state.debug.mischief?'ON':'OFF'}</button></div><div><button id="devMorning">8 AM</button><button id="devDusk">6 PM</button><button id="devMidnight">MIDNIGHT</button></div><div><button id="devRestore">FULL RESTORE</button><button id="devGrant">GRANT ALL</button></div><div><button id="devUnlock">UNLOCK MAP</button><button id="devJump">JUMP FAR</button><button id="devHome">GO HOME</button></div><div><button id="devLife">LIFE TEST 50X</button><button id="devCampaign">CAMPAIGN SIM</button><button id="devCast">CAST TEST</button><button id="devMidCat">MID CAT</button><button id="devVetCat">VETERAN</button><button id="devEndCat">ENDGAME</button></div><div class="tiny"><b>LIFE TRACE</b><br>${(state.progress.trace||[]).slice(0,7).join('<br>')||'No milestones yet.'}</div><button id="devReset">RESET SAVE</button>`;$('#devSpeed').onclick=()=>{const a=[1,2,5,10,50],i=a.indexOf(state.debug.speed);state.debug.speed=a[(i+1)%a.length];showToast('SIM SPEED '+state.debug.speed+'X');renderDev()};$('#devNeeds').onclick=()=>{state.debug.needsOff=!state.debug.needsOff;showToast('NEEDS '+(state.debug.needsOff?'DISABLED':'ENABLED'));renderDev()};$('#devRoam').onclick=()=>{state.debug.roamOnly=!state.debug.roamOnly;showToast('ROAM '+(state.debug.roamOnly?'FRONTIER PUSH':'NORMAL'));renderDev()};$('#devGates').onclick=()=>{state.debug.gatesOff=!state.debug.gatesOff;showToast('TRAVERSAL GATES '+(state.debug.gatesOff?'BYPASSED':'ENABLED'));if(state.debug.gatesOff&&state.debug.roamOnly&&!scene.exitPlan&&!state.cat.action)planExit(false);renderDev()};$('#devMischief').onclick=()=>{state.debug.mischief=!state.debug.mischief;state.debug.roamOnly=false;showToast('WORLD AGENCY TEST '+(state.debug.mischief?'ON':'OFF'));renderDev()};$('#devMorning').onclick=()=>state.outing.clockMin=480;$('#devDusk').onclick=()=>state.outing.clockMin=1080;$('#devMidnight').onclick=()=>state.outing.clockMin=1440;$('#devRestore').onclick=()=>{state.cat.energy=100;state.cat.nerve=100;state.cat.fearCause='CALM';state.cat.condition=100;state.cat.fatigue=0;showToast('CAT RESTORED')};$('#devGrant').onclick=devGrant;$('#devUnlock').onclick=()=>devUnlockMap(WORLD_LIMIT);$('#devJump').onclick=devJumpFar;$('#devHome').onclick=()=>{state.outing.returning=true;state.cat.action=null;planExit(true)};$('#devLife').onclick=devLifeTest;$('#devCampaign').onclick=()=>state.debug.campaign?stopCampaign():devCampaign();$('#devCast').onclick=devCastParade;$('#devMidCat').onclick=()=>devPreset(2);$('#devVetCat').onclick=()=>devPreset(4);$('#devEndCat').onclick=()=>devPreset(5);$('#devReset').onclick=resetSave}
+FPS ${typeof perfFps==='number'?perfFps:'--'} // TARGET ${targetRenderFps()} // SCALE ${(C.width/Math.max(1,DISPLAY_CANVAS.clientWidth)).toFixed(2)} // DRAW ${renderMs.toFixed(1)}ms // LOGIC ${logicMs.toFixed(1)}ms // STATIC ${HF_STATIC_CACHE.megabytes} MB ${HF_STATIC_CACHE.hits}/${HF_STATIC_CACHE.builds} // ERRORS ${runtimeErrorCount}${lastRuntimeError?' // '+lastRuntimeError:''}</pre><div><button id="devSpeed">SIM ${state.debug.speed}X</button><button id="devNeeds">NEEDS ${state.debug.needsOff?'OFF':'ON'}</button><button id="devRoam">ROAM ${state.debug.roamOnly?'ONLY':'NORMAL'}</button><button id="devGates">GATES ${state.debug.gatesOff?'OFF':'ON'}</button><button id="devMischief">MISCHIEF ${state.debug.mischief?'ON':'OFF'}</button></div><div><button id="devMorning">8 AM</button><button id="devDusk">6 PM</button><button id="devMidnight">MIDNIGHT</button></div><div><button id="devRestore">FULL RESTORE</button><button id="devGrant">GRANT ALL</button></div><div><button id="devUnlock">UNLOCK MAP</button><button id="devJump">JUMP FAR</button><button id="devHome">GO HOME</button></div><div><button id="devLife">LIFE TEST 50X</button><button id="devCampaign">CAMPAIGN SIM</button><button id="devCast">CAST TEST</button><button id="devMidCat">MID CAT</button><button id="devVetCat">VETERAN</button><button id="devEndCat">ENDGAME</button></div><div class="tiny"><b>LIFE TRACE</b><br>${(state.progress.trace||[]).slice(0,7).join('<br>')||'No milestones yet.'}</div><button id="devReset">RESET SAVE</button>`;$('#devSpeed').onclick=()=>{const a=[1,2,5,10,50],i=a.indexOf(state.debug.speed);state.debug.speed=a[(i+1)%a.length];showToast('SIM SPEED '+state.debug.speed+'X');renderDev()};$('#devNeeds').onclick=()=>{state.debug.needsOff=!state.debug.needsOff;showToast('NEEDS '+(state.debug.needsOff?'DISABLED':'ENABLED'));renderDev()};$('#devRoam').onclick=()=>{state.debug.roamOnly=!state.debug.roamOnly;showToast('ROAM '+(state.debug.roamOnly?'FRONTIER PUSH':'NORMAL'));renderDev()};$('#devGates').onclick=()=>{state.debug.gatesOff=!state.debug.gatesOff;showToast('TRAVERSAL GATES '+(state.debug.gatesOff?'BYPASSED':'ENABLED'));if(state.debug.gatesOff&&state.debug.roamOnly&&!scene.exitPlan&&!state.cat.action)planExit(false);renderDev()};$('#devMischief').onclick=()=>{state.debug.mischief=!state.debug.mischief;state.debug.roamOnly=false;showToast('WORLD AGENCY TEST '+(state.debug.mischief?'ON':'OFF'));renderDev()};$('#devMorning').onclick=()=>state.outing.clockMin=480;$('#devDusk').onclick=()=>state.outing.clockMin=1080;$('#devMidnight').onclick=()=>state.outing.clockMin=1440;$('#devRestore').onclick=()=>{state.cat.energy=100;state.cat.nerve=100;state.cat.fearCause='CALM';state.cat.condition=100;state.cat.fatigue=0;showToast('CAT RESTORED')};$('#devGrant').onclick=devGrant;$('#devUnlock').onclick=()=>devUnlockMap(WORLD_LIMIT);$('#devJump').onclick=devJumpFar;$('#devHome').onclick=()=>{state.outing.returning=true;state.cat.action=null;planExit(true)};$('#devLife').onclick=devLifeTest;$('#devCampaign').onclick=()=>state.debug.campaign?stopCampaign():devCampaign();$('#devCast').onclick=devCastParade;$('#devMidCat').onclick=()=>devPreset(2);$('#devVetCat').onclick=()=>devPreset(4);$('#devEndCat').onclick=()=>devPreset(5);$('#devReset').onclick=resetSave}
 function objectScaleClass(type){if(['feather','bottlecap','stringbit','cork','twig','can','paper','bee','beetle','snail','chicken','fishscrap','kibble','cheese','cardboardbit','potshard'].includes(type))return 'TINY';if(['box','bush','planter','ball','dish','snack','hole','bucket','flowerpot','stool','tarp','nook'].includes(type))return 'CAT-SCALE';if(['tree','car','porch','wall','door','dumpster','balcony','fireescape','scaffold'].includes(type))return 'MASSIVE TO A CAT';if(['awning','ledge','stairs','acunit','sign'].includes(type))return 'HUMAN-SIZED';return 'HUMAN-SIZED'}
 function inspectSceneAt(sx,sy){if(state.tab!=='cam'||!scene)return;const q=screenToLocal(sx,sy),ih=$('#inspectHud');const cx=sceneSX(state.cat.lx),cy=sceneSY(state.cat.ly);if(Math.hypot(sx-cx,sy-cy)<48){const need=currentNeed();ih.innerHTML=`<b>${catName().toUpperCase()} // LIVE READ</b><br>${state.cat.activity}<br><span class="known">WANTS ${need.name}: ${need.detail}</span><br><span class="unknown">Observation only. CatCam cannot steer ${pro('object')}.</span>`;ih.classList.remove('hidden');state.ui.inspect={kind:'cat'};beep('tap');return}
  const n=(scene.npcs||[]).sort((a,b)=>Math.hypot(a.x-q.x,a.y-q.y)-Math.hypot(b.x-q.x,b.y-q.y))[0];if(n&&Math.hypot(n.x-q.x,n.y-q.y)<11){const label=CONTACTS[n.kind]?.name||n.kind.toUpperCase(),ci=castInfo(n.kind),cc=state.contacts[n.kind];ih.innerHTML=`<b>CATCAM // ${label}</b><br>${n.ambient?`<span class="known">AMBIENT ROUTINE // ${residentStateLabel(n)}</span>`:'<span class="known">ACTIVE ENCOUNTER</span>'}<br>${ci.temper?`TEMPERAMENT // ${ci.temper.toUpperCase()}<br>`:''}${CONTACT_HOMES[n.kind]?`USUAL RANGE // ${CONTACT_HOMES[n.kind]}<br>`:''}${cc?`SEEN ${cc.count} // BOND ${Math.round(cc.bond*10)/10}<br>`:''}<span class="unknown">This animal has its own routine. Inspection does not call it over.</span>`;ih.classList.remove('hidden');state.ui.inspect={kind:'npc',id:n.id};beep('tap');return}
@@ -1737,10 +1862,10 @@ function targetRenderFps(){
  if(state.tab==='map')return 10;
  if(state.tab==='home'||state.tab==='journal')return 8;
  const busy=perfSceneBusy();
- if(isHifiPerf())return busy?30:18;
+ if(isHifiPerf())return busy?CATCAM_PERF.targetFps:Math.min(18,CATCAM_PERF.targetFps);
  return busy?60:30;
 }
-function targetLogicFps(){return (state.active||state.cat.action||state.ui?.petting||state.ui?.toy)?60:30}
+function targetLogicFps(){return CATCAM_PERF.constrained?30:60}
 function uiStateSignature(){
  const place=scene?.place?.name||'';
  return [state.tab,state.active?1:0,place,state.cat.activity||'',state.cat.focus||'',state.cat.need||'',Math.round(state.cat.energy||0),Math.round(fearLevel()),Math.round(state.cat.condition||0),state.ui?.camWide?1:0,state.ui?.hifiMode===false?0:1,state.world.weather||'',Math.floor((state.outing?.clockMin||0)/2)].join('|');
@@ -1772,15 +1897,16 @@ function loop(t){
   const rawDt=Math.min(.16,Math.max(0,(t-last)/1000));last=t;
   const speed=state.debug?.speed||1;
   logicCarry=Math.min(.5,logicCarry+rawDt*speed);
-  const logicStep=1/60;
+  const logicStep=1/targetLogicFps();
   let guard=0,logicStart=performance.now();
   while(logicCarry>=logicStep&&guard<30){updateCat(logicStep);logicCarry-=logicStep;guard++}
   if(guard>=30)logicCarry=0;
   syncClockReadouts();
   logicMs=logicMs*.9+(performance.now()-logicStart)*.1;
   uiAccum+=rawDt;mapAccum+=rawDt;devAccum+=rawDt;fpsAccum+=rawDt;
+  CATCAM_PERF.frameJank+=Math.max(0,rawDt*1000-34);CATCAM_PERF.jankSamples++;
   const busy=perfSceneBusy();
-  const renderFps=state.tab==='cam'?(busy?60:24):state.tab==='map'?10:4;
+  const renderFps=targetRenderFps();
   const interval=1000/renderFps;
   // Skip entire frames when idle; never mix setTimeout with requestAnimationFrame.
   if(t-lastRenderAt>=interval-1){
@@ -1799,7 +1925,38 @@ function loop(t){
    }else renderMiniVitals();
   }
   if(devAccum>=1){devAccum=0;renderDev()}
-  if(fpsAccum>=1){perfFps=Math.round(fpsFrames/fpsAccum);fpsFrames=0;fpsAccum=0;frameWorst=0;frameSamples=0;frameTimeSum=0}
+  if(fpsAccum>=1){
+    perfFps=Math.round(fpsFrames/fpsAccum);fpsFrames=0;fpsAccum=0;
+    if(isHifiPerf()&&state.tab==='cam'&&CATCAM_PERF.mode==='auto'){
+      const now=performance.now();
+      if(now-CATCAM_PERF.lastTune>=4800&&frameSamples>=8){
+        const drawCost=frameTimeSum/frameSamples;
+        const missedFrames=CATCAM_PERF.frameJank/Math.max(1,CATCAM_PERF.jankSamples);
+        const desired=targetRenderFps();
+        const slow=drawCost>Math.max(27,1000/desired*.78)||
+           (perfFps<desired*.70&&missedFrames>3);
+        const fast=drawCost<Math.min(13,1000/desired*.36)&&perfFps>=desired*.87;
+        if(slow){CATCAM_PERF.slowWindows++;CATCAM_PERF.fastWindows=0}
+        else if(fast){CATCAM_PERF.fastWindows++;CATCAM_PERF.slowWindows=0}
+        else{CATCAM_PERF.slowWindows=0;CATCAM_PERF.fastWindows=0}
+        if(CATCAM_PERF.slowWindows>=2){
+          CATCAM_PERF.slowWindows=0;CATCAM_PERF.qualityChanges++;
+          if(CATCAM_PERF.targetFps>24)CATCAM_PERF.targetFps=24;
+          else if(CATCAM_PERF.targetFps>20)CATCAM_PERF.targetFps=20;
+          else if(CATCAM_PERF.scale>.64){CATCAM_PERF.scale=Math.max(.61,CATCAM_PERF.scale-.12);resize()}
+          else if(CATCAM_PERF.targetFps>15)CATCAM_PERF.targetFps=15;
+          document.body.classList.toggle('catcam-efficient',CATCAM_PERF.targetFps<=20);
+        }else if(CATCAM_PERF.fastWindows>=4){
+          CATCAM_PERF.fastWindows=0;
+          if(CATCAM_PERF.scale<.99){CATCAM_PERF.scale=Math.min(1,CATCAM_PERF.scale+.07);resize()}
+          else if(CATCAM_PERF.targetFps<30)CATCAM_PERF.targetFps=Math.min(30,CATCAM_PERF.targetFps+5);
+          document.body.classList.toggle('catcam-efficient',CATCAM_PERF.targetFps<=20);
+        }
+        CATCAM_PERF.lastTune=now;CATCAM_PERF.frameJank=0;CATCAM_PERF.jankSamples=0;
+      }
+    }
+    frameWorst=0;frameSamples=0;frameTimeSum=0;
+  }
  }catch(err){
   lastRuntimeError=String(err&&err.message||err);runtimeErrorCount++;console.error('CATCAM runtime recovered:',err);
   if(scene)scene.cooldown=Math.max(scene.cooldown||0,.15);
@@ -2025,7 +2182,7 @@ document.addEventListener('visibilitychange',()=>{
  function drawHiFiExpandedPlace(){
    if(!scene) return; const p=scene.place||placeAt(HOME.x,HOME.y); if(p.type==='home') return homeRenderer();
    const theme=placeTheme(p); ctx.imageSmoothingEnabled=true; ctx.clearRect(0,0,C.width,C.height);
-   hfStaticScene('world',()=>{drawHiFiBackdrop(theme,p);drawHiFiGround(theme,p);if(URBAN.has(p.type))drawUrbanSet(theme,p);else drawNatureSet(theme,p)});hfDrawClouds();
+   hfStaticScene('world',()=>{drawHiFiBackdrop(theme,p);drawHiFiGround(theme,p);if(URBAN.has(p.type))drawUrbanSet(theme,p);else drawNatureSet(theme,p)});hfWindGrassOverlay();hfDrawClouds();
    const phase=(performance.now()/520)%1, worldS=C.width/700*sceneView().scale; let lift=0; if(state.cat.action&&['climb','climbbin'].includes(state.cat.action.kind)&&state.cat.action.stage!=='approach') lift=-Math.max(18,C.width/35); if(state.cat.action?.kind==='climbbin'&&state.cat.action.stage==='doing2') lift-=8;
    const ground=(scene.props||[]).filter(q=>!q.eaten&&GROUND_PROP_TYPES.has(q.type)); ground.forEach(hfProp);
    const drawables=[]; (scene.props||[]).filter(q=>!q.eaten&&!GROUND_PROP_TYPES.has(q.type)).forEach(q=>drawables.push({y:q.type==='bed'&&['sleep','loaf'].includes(state.cat.pose)&&Math.hypot(q.x-state.cat.lx,q.y-state.cat.ly)<19?Math.min(q.y,state.cat.ly-1):q.y,fn:()=>hfProp(q)})); (scene.movers||[]).forEach(q=>drawables.push({y:q.type==='bed'&&['sleep','loaf'].includes(state.cat.pose)&&Math.hypot(q.x-state.cat.lx,q.y-state.cat.ly)<19?Math.min(q.y,state.cat.ly-1):q.y,fn:()=>hfDrawMoverExpanded(q)})); (scene.npcs||[]).forEach(q=>drawables.push({y:q.type==='bed'&&['sleep','loaf'].includes(state.cat.pose)&&Math.hypot(q.x-state.cat.lx,q.y-state.cat.ly)<19?Math.min(q.y,state.cat.ly-1):q.y,fn:()=>hfDrawNpcExpanded(q)})); (scene.traffic||[]).forEach(q=>drawables.push({y:q.type==='bed'&&['sleep','loaf'].includes(state.cat.pose)&&Math.hypot(q.x-state.cat.lx,q.y-state.cat.ly)<19?Math.min(q.y,state.cat.ly-1):q.y,fn:()=>hfDrawMovingTraffic(q)})); drawables.push({y:state.cat.ly,fn:()=>hfCatModel(sceneSX(state.cat.lx),sceneSY(state.cat.ly)+lift,Math.max(1.22,worldS*2.02),state.cat.pose,phase,state.cat.dir)}); drawables.sort((a,b)=>a.y-b.y).forEach(q=>q.fn()); hfDrawToyBall();
@@ -2062,7 +2219,12 @@ document.addEventListener('visibilitychange',()=>{
   const p=scene?.place||placeAt(HOME.x,HOME.y);
   try{if(p.type==='home') homeRenderer(); else drawHiFiExpandedPlace();}
   catch(err){
-   if(hifiRenderWarnings++<4)console.error('HiFi scene render failed; switching to the original scene renderer for this frame:',err);
+   if(hifiRenderWarnings++<4)console.error('HiFi scene render failed; falling back to Retro if failures persist:',err);
+   if(hifiRenderWarnings>=3){state.ui.hifiMode=false;CATCAM_PERF.fallbackCount++;
+     HF_STATIC_CACHE.canvas.width=1;HF_STATIC_CACHE.canvas.height=1;HF_STATIC_CACHE.key='';
+     if(typeof syncVisualMode==='function')syncVisualMode();
+     if(hifiRenderWarnings===3)showToast('HIFI UNAVAILABLE ON THIS DEVICE // RETRO ACTIVE',6000);
+   }
    drawSceneLegacy();
   }
  };
@@ -2658,9 +2820,9 @@ function syncVisualMode(){
  visualToggleBtn.setAttribute('aria-pressed',hi?'true':'false');
  visualToggleBtn.title=hi?'Switch to Retro graphics':'Switch to HiFi graphics';
  const brand=document.querySelector('.brand small');
- if(brand)brand.textContent=hi?'FIRST LIFE ALPHA // HIFI VISUALS':'FIRST LIFE ALPHA // RETRO VISUALS';
+ if(brand)brand.textContent=hi?'FIRST LIFE // HIFI + LOW-POWER':'FIRST LIFE // RETRO';
  const footer=document.querySelector('.footer span:last-child');
- if(footer)footer.textContent=hi?'CATCAM // FIRST LIFE ALPHA // HIFI':'CATCAM // FIRST LIFE ALPHA // RETRO';
+ if(footer)footer.textContent=hi?'CATCAM // FIRST LIFE // COMPATIBILITY PASS':'CATCAM // FIRST LIFE // RETRO';
 }
 drawScene=function(){
  ctx.imageSmoothingEnabled=isHiFiVisual();
@@ -2675,6 +2837,7 @@ drawMap=function(){
 visualToggleBtn.addEventListener('click',()=>{
  state.ui.hifiMode=!isHiFiVisual();
  syncVisualMode();
+ HF_STATIC_CACHE.key='';HF_STATIC_CACHE.viewport=null;resize();
  // Camera and visual style switch instantly without generating a new scene,
  // changing location, restarting an outing, or touching the older save key.
  if(state.tab==='cam'||state.tab==='map')draw();
@@ -2682,6 +2845,25 @@ visualToggleBtn.addEventListener('click',()=>{
  save(true);
 });
 syncVisualMode();
+DISPLAY_CANVAS.addEventListener('contextlost',event=>{
+ event.preventDefault();CATCAM_PERF.fallbackCount++;state.ui.hifiMode=false;
+ HF_STATIC_CACHE.key='';HF_STATIC_CACHE.viewport=null;
+ try{syncVisualMode();showToast('GRAPHICS RESET // RETRO MODE',4500)}catch(e){}
+});
+DISPLAY_CANVAS.addEventListener('contextrestored',()=>{HF_STATIC_CACHE.key='';HF_STATIC_CACHE.viewport=null;resize()});
+window.__CATCAM_PERFORMANCE__={
+ report:()=>({mode:CATCAM_PERF.mode,visual:isHiFiVisual()?'HiFi':'Retro',
+   targetFps:targetRenderFps(),measuredFps:perfFps,drawMs:Math.round(renderMs*10)/10,
+   logicMs:Math.round(logicMs*10)/10,canvas:{width:C.width,height:C.height,cssW:Math.round(DISPLAY_CANVAS.clientWidth),cssH:Math.round(DISPLAY_CANVAS.clientHeight)},
+   deviceMemoryGB:CATCAM_PERF.memoryGB,cpuThreads:CATCAM_PERF.cpuCount,
+   backdropCache:{builds:HF_STATIC_CACHE.builds,hits:HF_STATIC_CACHE.hits,panMisses:HF_STATIC_CACHE.panMisses,
+     megabytes:HF_STATIC_CACHE.megabytes,failures:HF_STATIC_CACHE.failures},
+   cachedShadows:HF_SHADOW_CACHE.size,cachedClouds:HF_CLOUD_SPRITES.size,
+   adjustments:CATCAM_PERF.qualityChanges,backdropFallbacks:CATCAM_PERF.staticFallbacks,
+   gameErrors:runtimeErrorCount,lastError:lastRuntimeError}),
+ setMode:setCatcamRenderMode,
+ forceCacheRefresh:()=>{HF_STATIC_CACHE.key='';HF_STATIC_CACHE.viewport=null;draw();}
+};
 const oldVisualApi=window.__CATCAM_HIFI_WORLD__||{};
 window.__CATCAM_HIFI_WORLD__={...oldVisualApi,
  build:'v6.4-stability-performance',
@@ -2694,6 +2876,22 @@ window.__CATCAM_HIFI_WORLD__={...oldVisualApi,
 };
 
 $('#storyExpandBtn').onclick=()=>{const el=$('#storybar'),expanded=el.classList.toggle('expanded'),btn=$('#storyExpandBtn');btn.textContent=expanded?'LESS':'MORE';btn.setAttribute('aria-expanded',String(expanded));requestAnimationFrame(resize)};
+if(CATCAM_PERF.constrained){CATCAM_PERF.targetFps=24;
+  if(CATCAM_PERF.memoryGB&&CATCAM_PERF.memoryGB<=2)CATCAM_PERF.scale=.84;
+  else CATCAM_PERF.scale=.95;
+ }
+try{const pref=localStorage.getItem(CATCAM_GFX_PREF);
+ if(pref&&['auto','efficient','quality'].includes(pref)){CATCAM_PERF.mode=pref;CATCAM_PERF.targetFps=pref==='efficient'?20:pref==='auto'&&CATCAM_PERF.constrained?24:30;document.body.classList.toggle('catcam-efficient',pref==='efficient');}
+ }catch(e){}
+document.querySelectorAll('[data-gfx]').forEach(b=>{
+ b.setAttribute('aria-pressed',String(b.dataset.gfx===CATCAM_PERF.mode));
+ b.addEventListener('click',()=>setCatcamRenderMode(b.dataset.gfx));
+});
+$('#copyPerfReport').addEventListener('click',async()=>{
+ const report='CATCAM PERFORMANCE\n'+JSON.stringify(window.__CATCAM_PERFORMANCE__.report(),null,2);
+ try{await navigator.clipboard.writeText(report);showToast('PERFORMANCE REPORT COPIED')}
+ catch(e){window.prompt('Copy the report below and send it with the device/browser model:',report)}
+});
 scene=generateScene(state.cat.mx,state.cat.my);recoverLoadedSession();if(!state.profile.setupDone)setTimeout(openProfile,80);resize();renderAll();queueFrame();
 })();
 </script>
